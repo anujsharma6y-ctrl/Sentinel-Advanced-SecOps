@@ -1,0 +1,92 @@
+import os
+import subprocess
+import sys
+
+# Terminal colors for professional look
+class Colors:
+    OK = '\033[92m'
+    WARN = '\033[93m'
+    FAIL = '\033[91m'
+    END = '\033[0m'
+    BOLD = '\033[1m'
+
+def run_command(command):
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        return result.stdout.strip()
+    except Exception:
+        return None
+
+def audit_system():
+    print(f"{Colors.BOLD}🛡️  Starting System Security Audit...{Colors.END}\n")
+    score = 100
+    report = []
+
+    # 1. Check Firewall Status (UFW)
+    fw_status = run_command("sudo ufw status")
+    if "inactive" in fw_status or not fw_status:
+        report.append(f"{Colors.FAIL}[✖] Firewall is DISABLED{Colors.END}")
+        score -= 25
+    else:
+        report.append(f"{Colors.OK}[✔] Firewall is ACTIVE{Colors.END}")
+
+    # 2. Check SSH Root Login
+    ssh_config = run_command("grep '^PermitRootLogin' /etc/ssh/sshd_config")
+    if "yes" in ssh_config:
+        report.append(f"{Colors.FAIL}[✖] SSH Root Login is ENABLED (Critical Risk){Colors.END}")
+        score -= 25
+    else:
+        report.append(f"{Colors.OK}[✔] SSH Root Login is DISABLED{Colors.END}")
+
+    # 3. Check for World-Writable Files in /etc
+    ww_files = run_command("find /etc -type f -perm -0002")
+    if ww_files:
+        report.append(f"{Colors.FAIL}[✖] World-Writable files found in /etc{Colors.END}")
+        score -= 20
+    else:
+        report.append(f"{Colors.OK}[✔] No World-Writable files in /etc{Colors.END}")
+
+    # 4. Check Password Min Length Policy
+    pass_policy = run_command("grep '^PASS_MIN_LEN' /etc/login.defs")
+    if not pass_policy or (pass_policy and int(''.join(filter(str.isdigit, pass_policy))) < 8):
+        report.append(f"{Colors.WARN}[!] Password length policy is weak or not set{Colors.END}")
+        score -= 15
+    else:
+        report.append(f"{Colors.OK}[✔] Strong password length policy detected{Colors.END}")
+
+    # Display Results
+    for line in report:
+        print(line)
+    
+    print(f"\n{Colors.BOLD}📊 SECURITY SCORE: {score}/100{Colors.END}")
+    return score
+
+def harden_system():
+    print(f"\n{Colors.WARN}⚙️  Starting Auto-Hardening Process...{Colors.END}")
+    
+    # Action 1: Enable Firewall
+    print("  [+] Enabling UFW Firewall...")
+    run_command("sudo ufw --force enable")
+    
+    # Action 2: Disable SSH Root Login
+    print("  [+] Disabling SSH Root Login...")
+    run_command("sudo sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config")
+    run_command("sudo systemctl restart ssh")
+
+    # Action 3: Set Secure Permissions for /etc/shadow
+    print("  [+] Securing /etc/shadow permissions...")
+    run_command("sudo chmod 600 /etc/shadow")
+
+    print(f"{Colors.OK}✅ System Hardening Complete! Please re-run audit.{Colors.END}")
+
+if __name__ == "__main__":
+    if os.getuid() != 0:
+        print(f"{Colors.FAIL}❌ Error: Please run as ROOT (sudo).{Colors.END}")
+        sys.exit()
+
+    current_score = audit_system()
+    
+    if current_score < 100:
+        choice = input(f"\nWould you like to auto-harden the system? (y/n): ")
+        if choice.lower() == 'y':
+            harden_system()
