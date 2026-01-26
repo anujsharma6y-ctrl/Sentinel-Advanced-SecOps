@@ -1,0 +1,36 @@
+# Installation: pip install requests feedparser
+import requests
+import feedparser
+
+""" Collects real-time threat data (IOCs) from RSS and JSON feeds."""
+
+def fetch_cisa_alerts():
+    print("\n[+] Fetching CISA/FBI Security Alerts...")
+    # CISA RSS Feed URL
+    url = "https://www.cisa.gov/cybersecurity-advisories/all.xml"
+    feed = feedparser.parse(url)
+    
+    for entry in feed.entries[:5]: # Top 5 latest alerts
+        print(f" Alert: {entry.title}")
+        print(f" Link: {entry.link}\n")
+
+def fetch_phishing_iocs():
+    print("[+] Fetching Latest Phishing URLs (OpenPhish)...")
+    url = "https://openphish.com/feed.txt"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            # Get first 10 malicious URLs
+            iocs = response.text.splitlines()[:10]
+            for ioc in iocs:
+                print(f" Malicious URL: {ioc}")
+        else:
+            print(" Failed to fetch phishing data.")
+    except Exception as e:
+        print(f" Error: {e}")
+
+if __name__ == "__main__":
+    print("---  Threat Intelligence Dashboard ---")
+    fetch_cisa_alerts()
+    print("-" * 50)
+    fetch_phishing_iocs()
