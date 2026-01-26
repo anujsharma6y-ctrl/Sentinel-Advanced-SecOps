@@ -1,51 +1,73 @@
 import time
 from collections import defaultdict
 
-# --- Configuration ---
-# Asli system mein ye files se read honge (/var/log/auth.log)
-# Yahan hum logic samajhne ke liye 'Mock Data' use kar rahe hain
+# --- Configuration & Policy Settings ---
+# These paths are highly sensitive. Accessing them is a sign of reconnaissance (scouting).
 SENSITIVE_PATHS = ["/admin", "/config", "/.env", "/backup.sql"]
-TIME_WINDOW = 10  # Seconds jisme correlation check hoga
 
-# Memory to store events for correlation
-failed_logins = defaultdict(list) # Stores IP and timestamp of failures
+# The "Correlation Window" - events must happen within this time frame to be linked.
+TIME_WINDOW = 10  # Seconds
+
+# Memory storage: Maps IP addresses to a list of timestamps of their failed login attempts.
+failed_logins = defaultdict(list)
 
 def process_auth_event(ip, status):
-    """Failed login events ko track karta hai"""
+    """
+    Simulates monitoring Authentication Logs (e.g., SSH or Login forms).
+    Records failed attempts with a timestamp.
+    """
     if status == "fail":
+        # Record the exact time of the failure
         failed_logins[ip].append(time.time())
-        print(f"⚠️  [Auth] Failed login detected from {ip}")
+        print(f"⚠️  [Auth Log] Failed login attempt detected from IP: {ip}")
 
 def process_web_event(ip, path):
-    """Web access ko monitor karke correlation check karta hai"""
+    """
+    Simulates monitoring Web Server Logs (e.g., Apache or Nginx).
+    Correlates web activity with previous authentication failures.
+    """
     current_time = time.time()
-    
-    # Check if this IP is already in our 'Suspect' list from Auth logs
+
+    # Step 1: Check if the IP has a history of failures in our memory
     if ip in failed_logins:
-        # Check if any failure happened within the TIME_WINDOW
+        
+        # Step 2: Temporal Correlation
+        # Filter the list to keep ONLY failures that happened within the last 10 seconds.
         recent_failures = [t for t in failed_logins[ip] if current_time - t < TIME_WINDOW]
         
+        # Update the memory to remove old, irrelevant timestamps
+        failed_logins[ip] = recent_failures
+
+        # Step 3: Pattern Matching
+        # If the IP has 3+ recent failures AND is now touching sensitive files...
         if len(recent_failures) >= 3 and path in SENSITIVE_PATHS:
             print("\n" + "!"*60)
             print(f"🚨 [CORRELATION ALERT] MULTI-STAGE ATTACK DETECTED!")
             print(f"🕵️  Attacker IP: {ip}")
-            print(f"📝 Pattern: Brute-force + Sensitive Directory Probing ({path})")
-            print(f"⏱️  Time Span: Within last {TIME_WINDOW} seconds")
+            print(f"📝 Pattern Identified: Brute-force + Sensitive Directory Probing")
+            print(f"🎯 Target Resource: {path}")
+            print(f"⏱️  Time Span: {len(recent_failures)} events within last {TIME_WINDOW}s")
             print("!"*60 + "\n")
-            # Yahan trigger_incident_response() call kar sakte hain
-    
-    print(f"🌐 [Web] Access to {path} by {ip}")
+            # In a real system, you would call a function to block the IP here.
 
-# --- Simulation ---
+    print(f"🌐 [Web Log] Standard access to {path} by {ip}")
+
+# --- Execution Simulation ---
 if __name__ == "__main__":
-    print("🛡️  Sentinel L-IDS: Starting Multi-Log Correlation Engine...\n")
-    
-    # Step 1: Same IP se 3 baar galat password (Auth Log)
-    process_auth_event("192.168.1.50", "fail")
-    process_auth_event("192.168.1.50", "fail")
-    process_auth_event("192.168.1.50", "fail")
-    
-    time.sleep(2) # Thoda gap
-    
-    # Step 2: Wahi same IP sensitive file access kar raha hai (Web Log)
-    process_web_event("192.168.1.50", "/.env")
+    print("🛡️  Sentinel L-IDS: Initializing Multi-Log Correlation Engine...\n")
+
+    # ATTACK SIMULATION:
+    # Stage 1: Attacker tries to crack the password (3 failed attempts)
+    attacker_ip = "192.168.1.50"
+    process_auth_event(attacker_ip, "fail")
+    process_auth_event(attacker_ip, "fail")
+    process_auth_event(attacker_ip, "fail")
+
+    # Small delay to simulate real-world traffic
+    time.sleep(1)
+
+    # Stage 2: Attacker immediately tries to steal the environment configuration file
+    process_web_event(attacker_ip, "/.env")
+
+    # Normal User Simulation:
+    process_web_event("10.0.0.5", "/home/index.html")
