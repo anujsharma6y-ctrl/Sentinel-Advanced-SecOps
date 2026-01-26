@@ -1,0 +1,51 @@
+import time
+from collections import defaultdict
+
+# --- Configuration ---
+# Asli system mein ye files se read honge (/var/log/auth.log)
+# Yahan hum logic samajhne ke liye 'Mock Data' use kar rahe hain
+SENSITIVE_PATHS = ["/admin", "/config", "/.env", "/backup.sql"]
+TIME_WINDOW = 10  # Seconds jisme correlation check hoga
+
+# Memory to store events for correlation
+failed_logins = defaultdict(list) # Stores IP and timestamp of failures
+
+def process_auth_event(ip, status):
+    """Failed login events ko track karta hai"""
+    if status == "fail":
+        failed_logins[ip].append(time.time())
+        print(f"⚠️  [Auth] Failed login detected from {ip}")
+
+def process_web_event(ip, path):
+    """Web access ko monitor karke correlation check karta hai"""
+    current_time = time.time()
+    
+    # Check if this IP is already in our 'Suspect' list from Auth logs
+    if ip in failed_logins:
+        # Check if any failure happened within the TIME_WINDOW
+        recent_failures = [t for t in failed_logins[ip] if current_time - t < TIME_WINDOW]
+        
+        if len(recent_failures) >= 3 and path in SENSITIVE_PATHS:
+            print("\n" + "!"*60)
+            print(f"🚨 [CORRELATION ALERT] MULTI-STAGE ATTACK DETECTED!")
+            print(f"🕵️  Attacker IP: {ip}")
+            print(f"📝 Pattern: Brute-force + Sensitive Directory Probing ({path})")
+            print(f"⏱️  Time Span: Within last {TIME_WINDOW} seconds")
+            print("!"*60 + "\n")
+            # Yahan trigger_incident_response() call kar sakte hain
+    
+    print(f"🌐 [Web] Access to {path} by {ip}")
+
+# --- Simulation ---
+if __name__ == "__main__":
+    print("🛡️  Sentinel L-IDS: Starting Multi-Log Correlation Engine...\n")
+    
+    # Step 1: Same IP se 3 baar galat password (Auth Log)
+    process_auth_event("192.168.1.50", "fail")
+    process_auth_event("192.168.1.50", "fail")
+    process_auth_event("192.168.1.50", "fail")
+    
+    time.sleep(2) # Thoda gap
+    
+    # Step 2: Wahi same IP sensitive file access kar raha hai (Web Log)
+    process_web_event("192.168.1.50", "/.env")
