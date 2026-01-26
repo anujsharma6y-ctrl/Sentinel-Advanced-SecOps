@@ -1,0 +1,50 @@
+import os
+import datetime
+import logging
+
+# Setting up a Log File to track actions (Professional Touch)
+logging.basicConfig(filename="incident_response.log", level=logging.INFO, 
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
+class IRAutomator:
+    def __init__(self):
+        # Playbook steps with descriptions
+        self.playbooks = {
+            "RANSOMWARE": {
+                "steps": ["Isolate Network", "Kill Suspicious Processes", "Log Incident"],
+                "severity": "CRITICAL"
+            },
+            "UNAUTHORIZED_LOGIN": {
+                "steps": ["Revoke Sessions", "Lock User Account", "Notify Admin"],
+                "severity": "HIGH"
+            }
+        }
+
+    def isolate_network(self):
+        """Simulates disconnecting the network interface."""
+        print("🛠 [ACTION] Disconnecting Network Interfaces...")
+        # In a real scenario, you'd use: os.system("nmcli networking off") or similar
+        logging.warning("Action Taken: Network Isolation initiated.")
+
+    def execute_playbook(self, incident_type):
+        incident = incident_type.upper()
+        if incident in self.playbooks:
+            print(f"\n[!] 🚨 {incident} PLAYBOOK ACTIVATED (Severity: {self.playbooks[incident]['severity']})")
+            logging.info(f"Triggered Playbook for: {incident}")
+
+            for step in self.playbooks[incident]['steps']:
+                print(f" Executing: {step}...")
+                
+                # Real-world logic integration
+                if "Isolate" in step:
+                    self.isolate_network()
+            
+            print("\n✅ Mitigation steps logged in 'incident_response.log'")
+        else:
+            print(f"❌ No predefined playbook for: {incident}")
+
+if __name__ == "__main__":
+    print("---  Professional Incident Response Automator ---")
+    automator = IRAutomator()
+    trigger = input("Enter Incident (e.g., Ransomware): ")
+    automator.execute_playbook(trigger)
