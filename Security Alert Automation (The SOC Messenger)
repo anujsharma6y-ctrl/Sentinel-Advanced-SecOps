@@ -1,0 +1,69 @@
+import os
+import requests
+import datetime
+
+"""
+Module: Security Alert Automation
+Description: A centralized alerting utility to send security notifications 
+             to Telegram/Slack using Webhooks.
+Usage: Set 'TELEGRAM_TOKEN' and 'TELEGRAM_CHAT_ID' as environment variables.
+"""
+
+class SecurityAlerter:
+    def __init__(self, bot_token=None, chat_id=None):
+        # Pick credentials from environment variables if not provided directly
+        self.token = bot_token or os.getenv("TELEGRAM_TOKEN")
+        self.chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID")
+        self.api_url = f"https://api.telegram.org/bot{self.token}/sendMessage"
+
+    def send_alert(self, level, message, tool_name):
+        """
+        Sends a formatted security notification to a Telegram channel/user.
+        :param level: Severity of the alert (INFO, WARNING, CRITICAL)
+        :param message: Detailed description of the event
+        :param tool_name: Name of the detection tool triggering the alert
+        """
+        if not self.token or not self.chat_id:
+            print(" Error: Telegram credentials missing. Alert suppressed.")
+            return
+
+        # Formatting based on severity
+        icons = {"INFO": "ℹ️", "WARNING": "⚠️", "CRITICAL": "🚨"}
+        icon = icons.get(level.upper(), "🔔")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Professional Markdown Formatting
+        alert_text = (
+            f"{icon} *SECURITY ALERT: {level.upper()}*\n"
+            f"----------------------------------\n"
+            f"* Tool:* `{tool_name}`\n"
+            f"* Time:* `{timestamp}`\n"
+            f"* Message:* {message}\n"
+            f"----------------------------------"
+        )
+
+        payload = {
+            "chat_id": self.chat_id,
+            "text": alert_text,
+            "parse_mode": "Markdown"
+        }
+
+        try:
+            response = requests.post(self.api_url, data=payload, timeout=10)
+            if response.status_code == 200:
+                print(f" [{level}] Alert successfully dispatched via Telegram.")
+            else:
+                print(f" Failed to send alert. API Status: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            print(f"Network Error: Could not connect to Telegram API: {e}")
+
+# --- GitHub Usage Example (Safe for Public View) ---
+if __name__ == "__main__":
+    # To test locally, you can provide strings directly:
+    # alerter = SecurityAlerter("YOUR_TOKEN", "YOUR_CHAT_ID")
+    
+    # Professional way: credentials are pre-configured in the environment
+    alerter = SecurityAlerter()
+    
+    print("Security Alerter Module Initialized.")
+    print("Ready to be integrated with IDS/DLP tools.")
