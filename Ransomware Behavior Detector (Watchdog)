@@ -1,0 +1,46 @@
+# Installation: pip install watchdog
+import os
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+class RansomwareDetector(FileSystemEventHandler):
+    def __init__(self):
+        # Initialize counter to track rapid file changes (Burst Detection)
+        self.burst_count = 0
+        self.start_time = time.time()
+
+    def on_modified(self, event):
+        # Logic: Trigger alert if more than 10 files are modified within 5 seconds
+        self.burst_count += 1
+        current_time = time.time()
+
+        # Reset the counter every 5-second window
+        if current_time - self.start_time > 5:
+            self.burst_count = 0
+            self.start_time = current_time
+
+        # Threshold reached: Potential malicious encryption activity
+        if self.burst_count > 10:
+            print(f" ALERT: Potential Ransomware Activity! High File Burst Detected.")
+            # In a real scenario, logic to terminate the malicious process would go here
+
+# Define the target directory for monitoring
+path = "./test_folder"
+if not os.path.exists(path): 
+    os.makedirs(path)
+
+# Initialize the Watchdog observer
+observer = Observer()
+observer.schedule(RansomwareDetector(), path, recursive=True)
+observer.start()
+
+print(f"Ransomware Watchdog active on: {path}")
+
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    # Safely stop the observer on user interrupt
+    observer.stop()
+observer.join()
